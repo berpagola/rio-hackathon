@@ -1,4 +1,4 @@
-import { Button, Col, Menu, Row } from "antd";
+import { Button, Col, Menu, Row, List } from "antd";
 import "antd/dist/antd.css";
 import {
   useBalance,
@@ -30,6 +30,8 @@ import externalContracts from "./contracts/external_contracts";
 import deployedContracts from "./contracts/hardhat_contracts.json";
 import { Transactor, Web3ModalSetup } from "./helpers";
 import { Home, ExampleUI, Hints, Subgraph } from "./views";
+import CreateProject from "./views/CreateProject";
+import ProjectsUI from "./views/ProjectsUI";
 import { useStaticJsonRPC } from "./hooks";
 
 const { ethers } = require("ethers");
@@ -91,10 +93,6 @@ function App(props) {
   ]);
   const mainnetProvider = useStaticJsonRPC(providers);
 
-  if (DEBUG) console.log(`Using ${selectedNetwork} network`);
-
-  // 🛰 providers
-  if (DEBUG) console.log("📡 Connecting to Mainnet Ethereum");
 
   const logoutOfWeb3Modal = async () => {
     await web3Modal.clearCachedProvider();
@@ -158,7 +156,7 @@ function App(props) {
 
   // If you want to call a function on a new block
   useOnBlock(mainnetProvider, () => {
-    console.log(`⛓ A new mainnet block is here: ${mainnetProvider._lastBlockNumber}`);
+    //console.log(`⛓ A new mainnet block is here: ${mainnetProvider._lastBlockNumber}`);
   });
 
   // Then read your DAI balance like:
@@ -169,50 +167,9 @@ function App(props) {
   // keep track of a variable from the contract in the local React state:
   const purpose = useContractReader(readContracts, "YourContract", "purpose");
 
-  /*
-  const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
-  console.log("🏷 Resolved austingriffith.eth as:",addressFromENS)
-  */
-
-  //
-  // 🧫 DEBUG 👨🏻‍🔬
-  //
-  useEffect(() => {
-    if (
-      DEBUG &&
-      mainnetProvider &&
-      address &&
-      selectedChainId &&
-      yourLocalBalance &&
-      yourMainnetBalance &&
-      readContracts &&
-      writeContracts &&
-      mainnetContracts
-    ) {
-      console.log("_____________________________________ 🏗 scaffold-eth _____________________________________");
-      console.log("🌎 mainnetProvider", mainnetProvider);
-      console.log("🏠 localChainId", localChainId);
-      console.log("👩‍💼 selected address:", address);
-      console.log("🕵🏻‍♂️ selectedChainId:", selectedChainId);
-      console.log("💵 yourLocalBalance", yourLocalBalance ? ethers.utils.formatEther(yourLocalBalance) : "...");
-      console.log("💵 yourMainnetBalance", yourMainnetBalance ? ethers.utils.formatEther(yourMainnetBalance) : "...");
-      console.log("📝 readContracts", readContracts);
-      console.log("🌍 DAI contract on mainnet:", mainnetContracts);
-      console.log("💵 yourMainnetDAIBalance", myMainnetDAIBalance);
-      console.log("🔐 writeContracts", writeContracts);
-    }
-  }, [
-    mainnetProvider,
-    address,
-    selectedChainId,
-    yourLocalBalance,
-    yourMainnetBalance,
-    readContracts,
-    writeContracts,
-    mainnetContracts,
-    localChainId,
-    myMainnetDAIBalance,
-  ]);
+  const totalProjects = useContractReader(readContracts, "ProjectFactory", "getTotalProjects");
+  const projectsNumber = totalProjects && totalProjects.toNumber && totalProjects.toNumber();
+  
 
   const loadWeb3Modal = useCallback(async () => {
     const provider = await web3Modal.connect();
@@ -242,6 +199,30 @@ function App(props) {
     }
   }, [loadWeb3Modal]);
 
+  const [allProjects, setAllProjects] = useState();
+  useEffect(() => {
+    const updateYourCollectibles = async () => {
+      const collectibleUpdate = [];
+      console.log("projectsNumber:", projectsNumber);
+      for (let projectIndex = 0; projectIndex < projectsNumber; projectIndex++) {
+        try {
+          console.log("token index", projectIndex);
+          var data = await readContracts.ProjectFactory.getProject(projectIndex);
+          console.log("project: ", data);
+          try {
+            collectibleUpdate.push({ id: projectIndex, data: data });
+          } catch (e) {
+            console.log(e);
+          }
+        } catch (e) {
+          console.log(e);
+        }
+      }
+      setAllProjects(collectibleUpdate);
+    };
+    updateYourCollectibles();
+  }, [address, projectsNumber]);
+
   const faucetAvailable = localProvider && localProvider.connection && targetNetwork.name.indexOf("local") !== -1;
 
   return (
@@ -259,6 +240,12 @@ function App(props) {
       <Menu style={{ textAlign: "center", marginTop: 40 }} selectedKeys={[location.pathname]} mode="horizontal">
         <Menu.Item key="/">
           <Link to="/">App Home</Link>
+        </Menu.Item>
+        <Menu.Item key="/createProject">
+          <Link to="/createProject">Create Project</Link>
+        </Menu.Item>
+        <Menu.Item key="/viewProjects">
+          <Link to="/viewProjects">View Projects</Link>
         </Menu.Item>
         <Menu.Item key="/debug">
           <Link to="/debug">Debug Contracts</Link>
@@ -298,6 +285,50 @@ function App(props) {
             blockExplorer={blockExplorer}
             contractConfig={contractConfig}
           />
+        </Route>
+        <Route path="/createProject">
+          <CreateProject
+            loadWeb3Modal={loadWeb3Modal}
+            address={address}
+            tx={tx}
+            writeContracts={writeContracts}
+            readContracts={readContracts}
+            mainnetProvider={mainnetProvider}
+            blockExplorer={blockExplorer}
+            userSigner={userSigner}
+          />
+        </Route>
+        <Route exact path="/viewProjects">
+          <div style={{ width: 640, margin: "auto", marginTop: 32, paddingBottom: 32 }}>
+            {address ? (
+              <div style={{ width: 640, margin: "auto", marginTop: 32, paddingBottom: 32 }}>
+                <List
+                  bordered
+                  dataSource={allProjects}
+                  renderItem={item => {
+                    return (
+                      <ProjectsUI
+                        loadWeb3Modal={loadWeb3Modal}
+                        address={address}
+                        tx={tx}
+                        writeContracts={writeContracts}
+                        readContracts={readContracts}
+                        mainnetProvider={mainnetProvider}
+                        blockExplorer={blockExplorer}
+                        provider={localProvider}
+                        userSigner={userSigner}
+                        data={item.data}
+                      />
+                    );
+                  }}
+                />
+              </div>
+            ) : (
+              <Button key="loginbutton" type="primary" onClick={loadWeb3Modal}>
+                Connect Ethereum Wallet To Mint
+              </Button>
+            )}
+          </div>
         </Route>
         <Route path="/hints">
           <Hints

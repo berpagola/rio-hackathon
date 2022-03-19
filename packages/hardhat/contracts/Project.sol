@@ -4,16 +4,20 @@ pragma solidity >=0.8.0 <0.9.0;
 import "hardhat/console.sol";
 
 contract Project {
+    string public projectName;
+    string public projectDescription;
     address payable public benefactor;
     address payable public auditor;
     address payable public validator;
-    uint256 private softCap;
-    uint256 private hardCap;
-    uint256 private auditor_percent;
-    uint256 private validator_percent;
-    uint256 private state; // 0:fondeo - 1:ejecucion - 2:validacion - 3:cerrado
+    uint256 public softCap;
+    uint256 public hardCap;
+    uint256 public auditor_percent;
+    uint256 public validator_percent;
+    uint256 public state; // 0:fondeo - 1:ejecucion - 2:validacion - 3:cerrado
 
     constructor(
+        string memory _projectName,
+        string memory _projectDescription,
         address _auditor,
         address _validator,
         uint256 _softCap,
@@ -31,6 +35,8 @@ contract Project {
             _validator != _auditor,
             "validator and auditor can't be de same"
         );
+        projectName = _projectName;
+        projectDescription = _projectDescription;
         auditor = payable(_auditor);
         validator = payable(_validator);
         softCap = _softCap;
